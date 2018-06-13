@@ -18,7 +18,6 @@ package org.springframework.data.mapping.context;
 import static org.assertj.core.api.Assertions.*;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 
 import org.junit.Before;
@@ -42,10 +41,11 @@ public class MappingContextIsNewStrategyFactoryUnitTests {
 	public void setUp() {
 
 		SampleMappingContext context = new SampleMappingContext();
-		context.setInitialEntitySet(new HashSet<>(Arrays.asList(Entity.class, VersionedEntity.class)));
+		context.setInitialEntitySet(
+				new HashSet<>(Arrays.asList(Entity.class, VersionedEntity.class, PrimitiveIdEntity.class)));
 		context.afterPropertiesSet();
 
-		factory = new MappingContextIsNewStrategyFactory(new PersistentEntities(Collections.singleton(context)));
+		factory = new MappingContextIsNewStrategyFactory(PersistentEntities.of(context));
 	}
 
 	@Test
@@ -57,9 +57,6 @@ public class MappingContextIsNewStrategyFactoryUnitTests {
 		assertThat(strategy.isNew(entity)).isTrue();
 
 		entity.id = 1L;
-		assertThat(strategy.isNew(entity)).isTrue();
-
-		entity.version = 0L;
 		assertThat(strategy.isNew(entity)).isTrue();
 
 		entity.version = 1L;
@@ -93,6 +90,18 @@ public class MappingContextIsNewStrategyFactoryUnitTests {
 		assertThat(strategy.isNew(entity)).isFalse();
 	}
 
+	@Test // DATACMNS-1326
+	public void entityWithPrimitiveDefaultIsNotConsideredNew() {
+
+		IsNewStrategy strategy = factory.getIsNewStrategy(PrimitiveIdEntity.class);
+
+		PrimitiveIdEntity entity = new PrimitiveIdEntity();
+		assertThat(strategy.isNew(entity)).isTrue();
+
+		entity.id = 1L;
+		assertThat(strategy.isNew(entity)).isFalse();
+	}
+
 	@SuppressWarnings("serial")
 	static class PersistableEntity implements Persistable<Long> {
 
@@ -118,7 +127,7 @@ public class MappingContextIsNewStrategyFactoryUnitTests {
 		@Id Long id;
 	}
 
-	static class PrimitveVersionedEntity {
+	static class PrimitiveVersionedEntity {
 
 		@Version long version = 0;
 
@@ -128,5 +137,9 @@ public class MappingContextIsNewStrategyFactoryUnitTests {
 	static class Entity {
 
 		@Id Long id;
+	}
+
+	static class PrimitiveIdEntity {
+		@Id long id;
 	}
 }

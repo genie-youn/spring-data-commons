@@ -16,9 +16,7 @@
 package org.springframework.data.auditing;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
-import java.util.Collections;
 import java.util.Optional;
 
 import org.junit.Before;
@@ -42,12 +40,15 @@ public class IsNewAwareAuditingHandlerUnitTests extends AuditingHandlerUnitTests
 
 	@Before
 	public void init() {
+
 		this.mappingContext = new SampleMappingContext();
+		this.mappingContext.getPersistentEntity(AuditedUser.class);
+		this.mappingContext.afterPropertiesSet();
 	}
 
 	@Override
 	protected IsNewAwareAuditingHandler getHandler() {
-		return new IsNewAwareAuditingHandler(mock(PersistentEntities.class));
+		return new IsNewAwareAuditingHandler(PersistentEntities.of(mappingContext));
 	}
 
 	@Test
@@ -80,7 +81,7 @@ public class IsNewAwareAuditingHandlerUnitTests extends AuditingHandlerUnitTests
 
 	@Test // DATACMNS-365
 	public void setsUpHandlerWithMappingContext() {
-		new IsNewAwareAuditingHandler(new PersistentEntities(Collections.emptySet()));
+		new IsNewAwareAuditingHandler(PersistentEntities.of());
 	}
 
 	@Test // DATACMNS-638

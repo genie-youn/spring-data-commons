@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.data.annotation.TypeAlias;
+import org.springframework.data.domain.Persistable;
 import org.springframework.data.mapping.Alias;
 import org.springframework.data.mapping.Association;
 import org.springframework.data.mapping.AssociationHandler;
@@ -48,6 +49,8 @@ import org.springframework.data.mapping.SimpleAssociationHandler;
 import org.springframework.data.mapping.SimplePropertyHandler;
 import org.springframework.data.mapping.TargetAwareIdentifierAccessor;
 import org.springframework.data.spel.EvaluationContextProvider;
+import org.springframework.data.support.IsNewStrategy;
+import org.springframework.data.support.PersistableIsNewStrategy;
 import org.springframework.data.util.Lazy;
 import org.springframework.data.util.TypeInformation;
 import org.springframework.expression.EvaluationContext;
@@ -89,6 +92,7 @@ public class BasicPersistentEntity<T, P extends PersistentProperty<P>> implement
 	private EvaluationContextProvider evaluationContextProvider = EvaluationContextProvider.DEFAULT;
 
 	private final Lazy<Alias> typeAlias;
+	private final Lazy<IsNewStrategy> isNewStrategy;
 
 	/**
 	 * Creates a new {@link BasicPersistentEntity} from the given {@link TypeInformation}.
@@ -123,6 +127,10 @@ public class BasicPersistentEntity<T, P extends PersistentProperty<P>> implement
 		this.propertyAnnotationCache = CollectionUtils.toMultiValueMap(new ConcurrentReferenceHashMap<>());
 		this.propertyAccessorFactory = BeanWrapperPropertyAccessorFactory.INSTANCE;
 		this.typeAlias = Lazy.of(() -> getAliasFromAnnotation(getType()));
+		this.isNewStrategy = Lazy.of(() -> Persistable.class.isAssignableFrom(information.getType()) //
+				? PersistableIsNewStrategy.INSTANCE
+				: PersistentEntityIsNewStrategy.of(this));
+
 	}
 
 	/*
@@ -455,9 +463,7 @@ public class BasicPersistentEntity<T, P extends PersistentProperty<P>> implement
 	@Override
 	public PersistentPropertyAccessor getPropertyAccessor(Object bean) {
 
-		Assert.notNull(bean, "Target bean must not be null!");
-		Assert.isTrue(getType().isInstance(bean),
-				() -> String.format(TYPE_MISMATCH, bean.getClass().getName(), getType().getName()));
+		verifyBeanType(bean);
 
 		return propertyAccessorFactory.getPropertyAccessor(this, bean);
 	}
@@ -469,11 +475,25 @@ public class BasicPersistentEntity<T, P extends PersistentProperty<P>> implement
 	@Override
 	public IdentifierAccessor getIdentifierAccessor(Object bean) {
 
-		Assert.notNull(bean, "Target bean must not be null!");
-		Assert.isTrue(getType().isInstance(bean),
-				() -> String.format(TYPE_MISMATCH, bean.getClass().getName(), getType().getName()));
+		verifyBeanType(bean);
+
+		if (Persistable.class.isAssignableFrom(getType())) {
+			return new PersistableIdentifierAccessor((Persistable<?>) bean);
+		}
 
 		return hasIdProperty() ? new IdPropertyIdentifierAccessor(this, bean) : new AbsentIdentifierAccessor(bean);
+	}
+
+	/* 
+	 * (non-Javadoc)
+	 * @see org.springframework.data.mapping.PersistentEntity#isNew(java.lang.Object)
+	 */
+	@Override
+	public boolean isNew(Object bean) {
+
+		verifyBeanType(bean);
+
+		return isNewStrategy.get().isNew(bean);
 	}
 
 	/*
@@ -487,6 +507,18 @@ public class BasicPersistentEntity<T, P extends PersistentProperty<P>> implement
 
 	protected EvaluationContext getEvaluationContext(Object rootObject) {
 		return evaluationContextProvider.getEvaluationContext(rootObject);
+	}
+
+	/**
+	 * Verifies the given bean type to no be {@literal null} and of the type of the current {@link PersistentEntity}.
+	 * 
+	 * @param bean must not be {@literal null}.
+	 */
+	private final void verifyBeanType(Object bean) {
+
+		Assert.notNull(bean, "Target bean must not be null!");
+		Assert.isInstanceOf(getType(), bean,
+				() -> String.format(TYPE_MISMATCH, bean.getClass().getName(), getType().getName()));
 	}
 
 	/**

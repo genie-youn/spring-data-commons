@@ -44,6 +44,7 @@ import org.springframework.data.repository.query.parser.PartTree.OrPart;
  * @author Christoph Strobl
  * @author Mark Paluch
  * @author Michael Cramer
+ * @author Mariusz Mączkowski
  */
 public class PartTreeUnitTests {
 

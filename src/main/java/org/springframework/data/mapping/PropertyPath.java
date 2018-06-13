@@ -19,6 +19,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Value;
 
+import java.beans.Introspector;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -42,6 +43,7 @@ import org.springframework.util.StringUtils;
  * @author Oliver Gierke
  * @author Christoph Strobl
  * @author Mark Paluch
+ * @author Mariusz Mączkowski
  */
 @EqualsAndHashCode
 public class PropertyPath implements Streamable<PropertyPath> {
@@ -85,7 +87,7 @@ public class PropertyPath implements Streamable<PropertyPath> {
 		Assert.notNull(owningType, "Owning type must not be null!");
 		Assert.notNull(base, "Perviously found properties must not be null!");
 
-		String propertyName = name.matches(ALL_UPPERCASE) ? name : StringUtils.uncapitalize(name);
+		String propertyName = Introspector.decapitalize(name);
 		TypeInformation<?> propertyType = owningType.getProperty(propertyName);
 
 		if (propertyType == null) {
@@ -401,7 +403,7 @@ public class PropertyPath implements Streamable<PropertyPath> {
 			exception = e;
 		}
 
-		Pattern pattern = Pattern.compile("\\p{Lu}+\\p{Ll}*$");
+		Pattern pattern = Pattern.compile("\\p{Lu}\\p{Ll}*$");
 		Matcher matcher = pattern.matcher(source);
 
 		if (matcher.find() && matcher.start() != 0) {
